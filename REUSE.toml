@@ -1,0 +1,27 @@
+version = 1
+
+# Screenshots, GIFs and videos are renderings of QtPass' own UI. The artwork
+# baked into them (artwork/, icons/) is CC0-1.0 upstream, so the captures can
+# be CC0-1.0 too: drop them in a blog post, a distro store page or a wiki
+# without attribution bookkeeping.
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Anne Jan Brouwer"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "**/*.md"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Anne Jan Brouwer"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# The recorder includes QtPass headers and links libqtpass.a, so it is a
+# derivative work of QtPass and carries QtPass' license.
+
+[[annotations]]
+path = ["demo-video/demo.cpp", "demo-video/demo.pro"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Anne Jan Brouwer"
+SPDX-License-Identifier = "GPL-3.0-or-later"

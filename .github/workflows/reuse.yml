@@ -1,0 +1,29 @@
+---
+# SPDX-FileCopyrightText: 2026 Anne Jan Brouwer
+# SPDX-License-Identifier: CC0-1.0
+
+name: REUSE compliance check
+
+# Note: REUSE is a repository-wide compliance check - no path filtering
+# to catch licensing issues in any newly added files (screenshots, docs, etc.)
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  merge_group:
+
+permissions: {}
+
+jobs:
+  reuse:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: REUSE Compliance Check
+        uses: fsfe/reuse-action@v6.0.0
