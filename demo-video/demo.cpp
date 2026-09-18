@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 Anne Jan Brouwer
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Demo recorder: drives real QtPass widgets under the offscreen platform,
 // grabs every top-level window a dozen times a second, composites them with
 // a drawn cursor and writes numbered PNG frames for ffmpeg.
