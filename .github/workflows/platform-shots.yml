@@ -245,7 +245,8 @@ jobs:
             libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 \
             gnupg xvfb x11-utils xdotool imagemagick dbus-x11 mutter \
             gnome-themes-extra adwaita-icon-theme fonts-cantarell \
-            gsettings-desktop-schemas dconf-gsettings-backend >/dev/null
+            gsettings-desktop-schemas dconf-gsettings-backend wmctrl \
+            xdg-desktop-portal xdg-desktop-portal-gtk >/dev/null
       # Qt 6.8, whose GTK platform theme follows the dark setting (Ubuntu's
       # 6.4 does not); Ubuntu's own qtpass package is older anyway.
       - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
