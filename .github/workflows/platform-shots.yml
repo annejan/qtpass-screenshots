@@ -222,3 +222,35 @@ jobs:
         with:
           name: freebsd-shots
           path: shots/
+
+  gnome:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the build and desktop packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            build-essential qmake6 qt6-base-dev qt6-tools-dev-tools \
+            qt6-l10n-tools qt6-svg-dev qt6-gtk-platformtheme libgl-dev \
+            gnupg xvfb x11-utils xdotool imagemagick dbus-x11 mutter \
+            gnome-themes-extra adwaita-icon-theme fonts-cantarell \
+            gsettings-desktop-schemas dconf-gsettings-backend >/dev/null
+      # Ubuntu's own qtpass package is older, so the release is built.
+      - name: Build QtPass
+        run: |
+          git clone -q --depth 1 -b "$QTPASS_REF" https://github.com/IJHack/QtPass.git qtpass
+          cd qtpass && qmake6 qtpass.pro CONFIG+=release >/dev/null && make -j"$(nproc)" >/dev/null
+          ls -l main/qtpass
+      - name: Capture
+        timeout-minutes: 8
+        run: tools/gnome-shots.sh qtpass/main/qtpass
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: gnome-shots
+          path: shots/
