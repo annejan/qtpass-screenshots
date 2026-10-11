@@ -34,15 +34,16 @@ $r = New-Object W+RECT
 # DWMWA_EXTENDED_FRAME_BOUNDS: the visible frame; the margin takes in the shadow.
 [W]::DwmGetWindowAttribute($h, 9, [ref]$r, 16) | Out-Null
 $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-$L = [Math]::Max($r.L - $Margin, 0); $T = [Math]::Max($r.T - $Margin, 0)
-$R = [Math]::Min($r.R + $Margin, $screen.Right); $B = [Math]::Min($r.B + $Margin, $screen.Bottom)
+# (PowerShell names are case-insensitive: $r and $R would be one variable.)
+$left = [Math]::Max($r.L - $Margin, 0); $top = [Math]::Max($r.T - $Margin, 0)
+$right = [Math]::Min($r.R + $Margin, $screen.Right); $bottom = [Math]::Min($r.B + $Margin, $screen.Bottom)
 foreach ($pair in @(@("black", 0x000000), @("white", 0xFFFFFF))) {
   Set-Desktop $pair[1]
   [W]::SetForegroundWindow($h) | Out-Null
   Start-Sleep -Seconds 2
-  $bmp = New-Object System.Drawing.Bitmap ($R - $L), ($B - $T)
+  $bmp = New-Object System.Drawing.Bitmap ($right - $left), ($bottom - $top)
   $g = [System.Drawing.Graphics]::FromImage($bmp)
-  $g.CopyFromScreen($L, $T, 0, 0, $bmp.Size)
+  $g.CopyFromScreen($left, $top, 0, 0, $bmp.Size)
   $bmp.Save("$Out-$($pair[0]).png", [System.Drawing.Imaging.ImageFormat]::Png)
 }
-Write-Output "window $($r.L),$($r.T)-$($r.R),$($r.B); captured $L,$T-$R,$B (working area $screen)"
+Write-Output "window $($r.L),$($r.T)-$($r.R),$($r.B); captured $left,$top-$right,$bottom (working area $screen)"
