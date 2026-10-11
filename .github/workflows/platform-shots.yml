@@ -48,6 +48,10 @@ jobs:
           New-Item -ItemType Directory -Force $win | Out-Null
           $env:GNUPGHOME = "/" + $win.Substring(0, 1).ToLower() + $win.Substring(2).Replace("\", "/")
           "GNUPGHOME=$env:GNUPGHOME" >> $env:GITHUB_ENV
+          # Room around the window for its shadow, clear of the desktop
+          # icons (left) and the taskbar (bottom) on the 1024x768 screen.
+          $env:QTPASS_POS = "120 40"
+          $env:QTPASS_SIZE = "840 560"
           python -u tools\demo-store.py "C:/Program Files/Git/usr/bin/gpg.exe" "$env:RUNNER_TEMP\store" C:\qtpass\qtpass.ini
       - name: Capture
         shell: pwsh
@@ -73,7 +77,7 @@ jobs:
             Start-Sleep -Seconds 4
             Start-Process C:\qtpass\qtpass.exe -ArgumentList "example.com" -Wait
             Start-Sleep -Seconds 8
-            $name = if ($scheme -eq "dark") { "windows-app-dark.png" } else { "windows-app.png" }
+            $name = if ($scheme -eq "dark") { "windows-app-dark" } else { "windows-app" }
             & tools\capture-window.ps1 -ProcessId $qp.Id -Out "shots\$name"
             Stop-Process -Id $qp.Id -Force
             Start-Sleep -Seconds 2
@@ -82,6 +86,34 @@ jobs:
         if: always()
         with:
           name: windows-shots
+          path: shots/
+
+  # The black/white capture pairs become PNGs with real transparency.
+  windows-finish:
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: windows-shots
+          path: pairs
+      - name: Combine the pairs
+        run: |
+          sudo apt-get install -y -qq imagemagick >/dev/null
+          command -v magick >/dev/null || sudo ln -s "$(command -v convert)" /usr/local/bin/magick
+          mkdir -p shots
+          for name in windows-app windows-app-dark; do
+            tools/alpha-from-pair.sh "pairs/$name-black.png" "pairs/$name-white.png" "shots/$name.png"
+          done
+          identify shots/*.png
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-final
           path: shots/
 
   macos:

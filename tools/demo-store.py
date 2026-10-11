@@ -58,7 +58,7 @@ useTemplate=true
 version=1.8.3
 
 [mainwindow]
-pos=@Point(24 16)
-size=@Size(880 620)
+pos=@Point({os.environ.get("QTPASS_POS", "24 16")})
+size=@Size({os.environ.get("QTPASS_SIZE", "880 620")})
 """)
 print("store", store, "key", fpr, "ini", ini)
