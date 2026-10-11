@@ -37,21 +37,29 @@ jobs:
           Invoke-WebRequest "https://github.com/IJHack/QtPass/releases/download/$env:QTPASS_REF/qtpass-$v.exe" -OutFile "$env:RUNNER_TEMP\setup.exe"
           Start-Process "$env:RUNNER_TEMP\setup.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=C:\qtpass" -Wait
           Get-ChildItem C:\qtpass\qtpass.exe
+      # GnuPG for Windows, as Gpg4win installs it; Git's MSYS gpg does not
+      # take Windows paths in GNUPGHOME.
+      - name: Install GnuPG
+        shell: pwsh
+        timeout-minutes: 6
+        run: |
+          choco install gnupg -y --no-progress
+          $gpg = Get-ChildItem "C:\Program Files*\GnuPG\bin\gpg.exe" | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $gpg) { throw "gpg.exe not found after choco install gnupg" }
+          & $gpg --version | Select-Object -First 1
+          "GPG=$gpg" >> $env:GITHUB_ENV
       - name: Demo store
         shell: pwsh
+        timeout-minutes: 5
         run: |
           $env:GNUPGHOME = "$env:RUNNER_TEMP\gnupg"
           "GNUPGHOME=$env:GNUPGHOME" >> $env:GITHUB_ENV
-          # GnuPG for Windows, as Gpg4win installs it; Git's MSYS gpg does not
-          # take Windows paths in GNUPGHOME.
-          choco install gnupg -y --no-progress | Out-Null
-          $gpg = Get-ChildItem "C:\Program Files*\GnuPG\bin\gpg.exe" | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $gpg) { throw "gpg.exe not found after choco install gnupg" }
-          python tools\demo-store.py $gpg "$env:RUNNER_TEMP\store" C:\qtpass\qtpass.ini
+          python -u tools\demo-store.py $env:GPG "$env:RUNNER_TEMP\store" C:\qtpass\qtpass.ini
           Add-Type -AssemblyName System.Windows.Forms
           [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
       - name: Capture
         shell: pwsh
+        timeout-minutes: 6
         run: |
           $ErrorActionPreference = "Stop"
           New-Item -ItemType Directory -Force shots | Out-Null
@@ -64,8 +72,12 @@ jobs:
             Start-Sleep -Seconds 2
             $qp = Start-Process C:\qtpass\qtpass.exe -PassThru
             Start-Sleep -Seconds 8
-            Start-Process C:\qtpass\qtpass.exe -ArgumentList "example" -Wait
-            Start-Sleep -Seconds 6
+            # Twice: the first search expands and loads the folders, the
+            # second selects and opens the first match.
+            Start-Process C:\qtpass\qtpass.exe -ArgumentList "mail.example.com|social|web|acme|wiki" -Wait
+            Start-Sleep -Seconds 4
+            Start-Process C:\qtpass\qtpass.exe -ArgumentList "mail.example.com|social|web|acme|wiki" -Wait
+            Start-Sleep -Seconds 8
             $name = if ($scheme -eq "dark") { "windows-app-dark.png" } else { "windows-app.png" }
             & tools\capture-window.ps1 -ProcessId $qp.Id -Out "shots\$name"
             Stop-Process -Id $qp.Id -Force
@@ -106,20 +118,28 @@ jobs:
           python3 tools/demo-store.py "$(command -v gpg)" "$RUNNER_TEMP/store" "$(dirname "$exe")/qtpass.ini"
           system_profiler SPDisplaysDataType | grep -i resolution || true
       - name: Capture
+        timeout-minutes: 6
         run: |
           set -x
           mkdir -p shots
           exe=$(ls qtpass/main/QtPass.app/Contents/MacOS/* | grep -v '\.ini$' | head -1)
           for scheme in light dark; do
+            # -AppleInterfaceStyle in the argument domain sets this app's
+            # appearance; QtPass takes it as search text, which the second
+            # instance's search below replaces.
             if [ "$scheme" = dark ]; then
-              defaults write -g AppleInterfaceStyle Dark; name=macos-app-dark.png
+              appearance=(-AppleInterfaceStyle Dark); name=macos-app-dark.png
             else
-              defaults delete -g AppleInterfaceStyle 2>/dev/null || true; name=macos-app.png
+              appearance=(-AppleInterfaceStyle Light); name=macos-app.png
             fi
-            "$exe" > "shots/qtpass-$scheme.log" 2>&1 &
+            "$exe" "${appearance[@]}" > "shots/qtpass-$scheme.log" 2>&1 &
             qp=$!
             sleep 10
-            "$exe" example >> "shots/qtpass-$scheme.log" 2>&1 || true
+            # Twice: the first search expands and loads the folders, the
+            # second selects and opens the first match.
+            "$exe" 'mail.example.com|social|web|acme|wiki' >> "shots/qtpass-$scheme.log" 2>&1 || true
+            sleep 4
+            "$exe" 'mail.example.com|social|web|acme|wiki' >> "shots/qtpass-$scheme.log" 2>&1 || true
             sleep 8
             ps -p "$qp" -o pid,stat,command || echo "QtPass ($qp) is not running"
             id=$(swift tools/window-id.swift "$qp" --list) || {
