@@ -58,7 +58,7 @@ useTemplate=true
 version=1.8.3
 
 [mainwindow]
-pos=@Point(40 40)
-size=@Size(900 660)
+pos=@Point(24 16)
+size=@Size(880 620)
 """)
 print("store", store, "key", fpr, "ini", ini)

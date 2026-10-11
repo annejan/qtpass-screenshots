@@ -69,9 +69,9 @@ jobs:
             # search then selects and opens the first match.
             Start-Process C:\qtpass\qtpass.exe -ArgumentList "." -Wait
             Start-Sleep -Seconds 5
-            Start-Process C:\qtpass\qtpass.exe -ArgumentList "mail.example.com|social|web|acme|wiki" -Wait
+            Start-Process C:\qtpass\qtpass.exe -ArgumentList "example.com" -Wait
             Start-Sleep -Seconds 4
-            Start-Process C:\qtpass\qtpass.exe -ArgumentList "mail.example.com|social|web|acme|wiki" -Wait
+            Start-Process C:\qtpass\qtpass.exe -ArgumentList "example.com" -Wait
             Start-Sleep -Seconds 8
             $name = if ($scheme -eq "dark") { "windows-app-dark.png" } else { "windows-app.png" }
             & tools\capture-window.ps1 -ProcessId $qp.Id -Out "shots\$name"
@@ -131,9 +131,9 @@ jobs:
             # search then selects and opens the first match.
             "$exe" '.' >> "shots/qtpass-$scheme.log" 2>&1 || true
             sleep 5
-            "$exe" 'mail.example.com|social|web|acme|wiki' >> "shots/qtpass-$scheme.log" 2>&1 || true
+            "$exe" 'example.com' >> "shots/qtpass-$scheme.log" 2>&1 || true
             sleep 4
-            "$exe" 'mail.example.com|social|web|acme|wiki' >> "shots/qtpass-$scheme.log" 2>&1 || true
+            "$exe" 'example.com' >> "shots/qtpass-$scheme.log" 2>&1 || true
             sleep 8
             ps -p "$qp" -o pid,stat,command || echo "QtPass ($qp) is not running"
             id=$(swift tools/window-id.swift "$qp" --list) || {
