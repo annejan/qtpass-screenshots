@@ -2,9 +2,10 @@
 # SPDX-FileCopyrightText: 2026 Anne Jan Brouwer
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# FreeBSD screenshots of QtPass for qtpass.org's platform tiles: KWin and
-# Breeze on Xvfb, the demo store, light and dark. Run inside the FreeBSD VM
-# from the repository root with the built QtPass as $1.
+# FreeBSD screenshots of QtPass for qtpass.org's platform tiles: the Xfce
+# window manager (xfwm4) with Greybird, QtPass through Qt's GTK platform
+# theme, on Xvfb, with the demo store, light and dark. Run inside the
+# FreeBSD VM from the repository root with the built QtPass as $1.
 set -eu
 
 QTPASS=$(realpath "$1")
@@ -14,39 +15,43 @@ WORK=$(mktemp -d /tmp/qtshots.XXXX)
 export HOME="$WORK/home" XDG_RUNTIME_DIR="$WORK/run" GNUPGHOME="$WORK/home/.gnupg"
 mkdir -p "$HOME/.config" "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
 export DISPLAY=:77 LANG=en_US.UTF-8
-export XDG_CURRENT_DESKTOP=KDE KDE_SESSION_VERSION=6 KDE_FULL_SESSION=true
-export QT_QPA_PLATFORMTHEME=kde QT_STYLE_OVERRIDE=Breeze
+export XDG_CURRENT_DESKTOP=XFCE QT_QPA_PLATFORMTHEME=gtk3
 
 python3 tools/demo-store.py "$(command -v gpg)" "$WORK/store" "$(dirname "$QTPASS")/qtpass.ini"
 
-session() { # $1: BreezeLight or BreezeDark
-	rm -rf "$HOME/.cache"
-	cp "/usr/local/share/color-schemes/$1.colors" "$HOME/.config/kdeglobals"
-	icons=breeze; [ "$1" = BreezeDark ] && icons=breeze-dark
-	cat >>"$HOME/.config/kdeglobals" <<KDE
-
-[KDE]
-widgetStyle=Breeze
-
-[Icons]
-Theme=$icons
-
-[General]
-ColorScheme=$1
-font=Noto Sans,10,-1,5,50,0,0,0,0,0
-KDE
-	printf '[org.kde.kdecoration2]\nlibrary=org.kde.breeze\ntheme=Breeze\n\n[Compositing]\nEnabled=false\n' >"$HOME/.config/kwinrc"
+session() { # $1: Greybird or Greybird-dark
+	rm -rf "$HOME/.cache" "$HOME/.config/gtk-3.0" "$HOME/.config/xfce4"
+	icons=elementary-Xfce dark=0
+	if [ "$1" = Greybird-dark ]; then icons=elementary-Xfce-dark dark=1; fi
+	mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/xfce4/xfconf/xfce-perchannel-xml"
+	cat >"$HOME/.config/gtk-3.0/settings.ini" <<GTK
+[Settings]
+gtk-theme-name=$1
+gtk-icon-theme-name=$icons
+gtk-font-name=Noto Sans 10
+gtk-application-prefer-dark-theme=$dark
+GTK
+	cat >"$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml" <<XFWM
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfwm4" version="1.0">
+  <property name="general" type="empty">
+    <property name="theme" type="string" value="$1"/>
+    <property name="title_font" type="string" value="Noto Sans Bold 10"/>
+    <property name="use_compositing" type="bool" value="false"/>
+  </property>
+</channel>
+XFWM
 	Xvfb :77 -screen 0 1280x900x24 -dpi 96 -nolisten tcp >"$WORK/xvfb.log" 2>&1 &
 	XVFB=$!
 	sleep 2
 	eval "$(dbus-launch --sh-syntax)"
-	kwin_x11 --replace >"$WORK/kwin.log" 2>&1 &
-	KWIN=$!
+	xfwm4 --replace >"$WORK/wm.log" 2>&1 &
+	WM=$!
 	sleep 4
 }
 
 end_session() {
-	kill "$KWIN" "$XVFB" "$DBUS_SESSION_BUS_PID" 2>/dev/null || true
+	kill "$WM" "$XVFB" "$DBUS_SESSION_BUS_PID" 2>/dev/null || true
 	sleep 2
 }
 
@@ -66,7 +71,7 @@ capture() { # $1 scheme, $2 output name
 	w=$(xdotool search --onlyvisible --name '^QtPass$' | head -1)
 	if [ -z "$w" ]; then
 		import -window root "$OUT/screen-$1.png"
-		tail -20 "$WORK/kwin.log"
+		tail -20 "$WORK/wm.log"
 		echo "no QtPass window"; return 1
 	fi
 	xdotool mousemove 1270 890
@@ -81,6 +86,6 @@ EXT
 	end_session
 }
 
-capture BreezeLight freebsd-app.png
-capture BreezeDark freebsd-app-dark.png
+capture Greybird freebsd-app.png
+capture Greybird-dark freebsd-app-dark.png
 ls -l "$OUT"

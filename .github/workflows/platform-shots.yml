@@ -162,8 +162,8 @@ jobs:
         with:
           persist-credentials: false
       # FreeBSD's qtpass package lags (1.8.2), so the release is built from
-      # source, as QtPass's own FreeBSD CI does; Plasma's KWin and Breeze
-      # on Xvfb give the desktop.
+      # source, as QtPass's own FreeBSD CI does; Xfce's window manager with
+      # the Greybird theme on Xvfb gives the desktop.
       - name: Build and capture in a FreeBSD VM
         uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
@@ -177,8 +177,8 @@ jobs:
           prepare: |
             pkg install -y qt6-base qt6-tools qt6-svg gnupg git python3 \
               xorg-vfbserver xkbcomp xauth xdotool xprop xwininfo ImageMagick7 \
-              noto-basic dbus plasma6-kwin-x11 plasma6-breeze kf6-breeze-icons \
-              plasma6-plasma-integration-qt6
+              noto-basic dbus xfce4-wm xfce4-conf greybird-theme \
+              xfce-icons-elementary
           run: |
             set -e
             git clone -q --depth 1 -b "$QTPASS_REF" https://github.com/IJHack/QtPass.git qtpass
