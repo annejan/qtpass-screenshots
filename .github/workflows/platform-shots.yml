@@ -45,6 +45,7 @@ jobs:
         run: |
           # D:\a\_temp\gnupg -> /d/a/_temp/gnupg, the MSYS form.
           $win = "$env:RUNNER_TEMP\gnupg"
+          New-Item -ItemType Directory -Force $win | Out-Null
           $env:GNUPGHOME = "/" + $win.Substring(0, 1).ToLower() + $win.Substring(2).Replace("\", "/")
           "GNUPGHOME=$env:GNUPGHOME" >> $env:GITHUB_ENV
           python -u tools\demo-store.py "C:/Program Files/Git/usr/bin/gpg.exe" "$env:RUNNER_TEMP\store" C:\qtpass\qtpass.ini

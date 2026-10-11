@@ -12,7 +12,10 @@ GNUPGHOME must point to an empty, private directory.
 import os, pathlib, subprocess, sys
 
 gpg, store, ini = sys.argv[1], pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
-# GnuPG creates GNUPGHOME itself; loopback pinentry is allowed by default.
+# GnuPG does not create GNUPGHOME; loopback pinentry is allowed by default.
+# On Windows the workflow creates it, as GNUPGHOME is an MSYS path there.
+if os.name != "nt":
+    pathlib.Path(os.environ["GNUPGHOME"]).mkdir(mode=0o700, parents=True, exist_ok=True)
 
 def run(*args, **kw):
     return subprocess.run([gpg, "--batch", "--pinentry-mode", "loopback",
