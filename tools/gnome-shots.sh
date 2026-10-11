@@ -33,6 +33,9 @@ session() { # $1: Adwaita or Adwaita-dark
 	gsettings set org.gnome.desktop.interface color-scheme "$scheme"
 	gsettings set org.gnome.desktop.interface gtk-theme "$1"
 	gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close'
+	gsettings set org.gnome.desktop.background picture-options none
+	gsettings set org.gnome.desktop.background color-shading-type solid
+	gsettings set org.gnome.desktop.background primary-color '#000000'
 	mutter --x11 --replace >"$WORK/wm.log" 2>&1 &
 	WM=$!
 	sleep 5
@@ -66,12 +69,23 @@ capture() { # $1 theme, $2 output name
 	fi
 	xdotool mousemove 1270 890
 	sleep 1
-	# shellcheck disable=SC2034 # set by xdotool --shell
-	local X Y WIDTH HEIGHT SCREEN WINDOW L R T B
-	eval "$(xdotool getwindowgeometry --shell "$w")"
-	read -r L R T B < <(xprop -id "$w" _NET_FRAME_EXTENTS | sed 's/.*= //; s/,//g')
-	L=${L:-0} R=${R:-0} T=${T:-0} B=${B:-0}
-	import -window root -crop $((WIDTH + L + R))x$((HEIGHT + T + B))+$((X - L))+$((Y - T)) +repage "$OUT/$2"
+	# Mutter reparents the client into its frame; capture the frame plus a
+	# margin for Mutter's shadow, once on a black and once on a white
+	# desktop, and let alpha-from-pair.sh work out the real transparency.
+	local frame X Y W H m=48
+	frame=$(xwininfo -children -id "$w" | awk '/Parent window id/ {print $4}')
+	X=$(xwininfo -id "$frame" | awk '/Absolute upper-left X/ {print $4}')
+	Y=$(xwininfo -id "$frame" | awk '/Absolute upper-left Y/ {print $4}')
+	W=$(xwininfo -id "$frame" | awk '/Width:/ {print $2}')
+	H=$(xwininfo -id "$frame" | awk '/Height:/ {print $2}')
+	for bg in black white; do
+		local colour='#000000'
+		[ "$bg" = white ] && colour='#ffffff'
+		gsettings set org.gnome.desktop.background primary-color "$colour"
+		sleep 2
+		import -window root -crop $((W + 2 * m))x$((H + 2 * m))+$((X - m))+$((Y - m)) +repage "$WORK/$bg.png"
+	done
+	tools/alpha-from-pair.sh "$WORK/black.png" "$WORK/white.png" "$OUT/$2"
 	kill "$qp" 2>/dev/null || true
 	end_session
 }

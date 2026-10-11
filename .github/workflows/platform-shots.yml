@@ -50,8 +50,8 @@ jobs:
           "GNUPGHOME=$env:GNUPGHOME" >> $env:GITHUB_ENV
           # Room around the window for its shadow, clear of the desktop
           # icons (left) and the taskbar (bottom) on the 1024x768 screen.
-          $env:QTPASS_POS = "120 40"
-          $env:QTPASS_SIZE = "840 560"
+          $env:QTPASS_POS = "100 30"
+          $env:QTPASS_SIZE = "800 520"
           python -u tools\demo-store.py "C:/Program Files/Git/usr/bin/gpg.exe" "$env:RUNNER_TEMP\store" C:\qtpass\qtpass.ini
       - name: Capture
         shell: pwsh
@@ -65,6 +65,10 @@ jobs:
             $v = if ($scheme -eq "dark") { 0 } else { 1 }
             Set-ItemProperty $key AppsUseLightTheme $v -Type DWord
             Set-ItemProperty $key SystemUsesLightTheme $v -Type DWord
+            Start-Sleep -Seconds 2
+            # Nothing else on the desktop: the runner's console window would
+            # show up in the black and the white capture alike.
+            (New-Object -ComObject Shell.Application).MinimizeAll()
             Start-Sleep -Seconds 2
             $qp = Start-Process C:\qtpass\qtpass.exe -PassThru
             Start-Sleep -Seconds 8
@@ -248,7 +252,9 @@ jobs:
           ls -l main/qtpass
       - name: Capture
         timeout-minutes: 8
-        run: tools/gnome-shots.sh qtpass/main/qtpass
+        run: |
+          command -v magick >/dev/null || sudo ln -s "$(command -v convert)" /usr/local/bin/magick
+          tools/gnome-shots.sh qtpass/main/qtpass
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
