@@ -23,6 +23,10 @@ session() { # $1: Adwaita or Adwaita-dark
 	rm -rf "$HOME/.cache"
 	local scheme=default dark=0
 	if [ "$1" = Adwaita-dark ]; then scheme=prefer-dark dark=1; fi
+	# GTK_THEME beats every other setting; without it Qt's GTK theme kept
+	# the light palette under a dark Mutter title bar.
+	export GTK_THEME=Adwaita
+	if [ "$dark" = 1 ]; then GTK_THEME=Adwaita:dark; fi
 	mkdir -p "$HOME/.config/gtk-3.0"
 	printf '[Settings]\ngtk-theme-name=%s\ngtk-icon-theme-name=Adwaita\ngtk-font-name=Cantarell 11\ngtk-application-prefer-dark-theme=%s\n' \
 		"$1" "$dark" >"$HOME/.config/gtk-3.0/settings.ini"
