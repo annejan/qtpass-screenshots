@@ -1,0 +1,12 @@
+Keys/ssh-passphrase|correct-horse-battery-staple
+Personal/Banking/bank.example.nl|Xq7!pLm2@vRt9#kWz\nlogin: anne\nurl: https://bank.example.nl
+Personal/Email/mail.example.com|hT4$wQ9zLk2!mNp8vB6x\nlogin: anne@example.com\nurl: https://mail.example.com\notpauth://totp/mail.example.com:anne@example.com?secret=JBSWY3DPEHPK3PXP&issuer=mail.example.com
+Personal/Shopping/shop.example.com|Zr8#nK3pQw6!\nlogin: anne@example.com\nurl: https://shop.example.com
+Personal/Social/social.example.org|Mv5@tY2kLp9#\nlogin: anne\nurl: https://social.example.org
+Servers/web.example.net|Hp3!zX8qWr5m
+Wi-Fi/home|trees-under-the-bridge
+Wi-Fi/office|meeting-room-coffee
+Work/ACME/git.acme.example|Gb7#kP2xLq9w\nlogin: anne\nurl: https://git.acme.example
+Work/ACME/issues.acme.example|Ds4!mR8tNz3q\nlogin: anne\nurl: https://issues.acme.example
+Work/ACME/vpn|Wf6@jK1pXc8v
+Work/Clients/IJHack/wiki|Ly2#qT7mBn4k\nlogin: anne\nurl: https://wiki.ijhack.org

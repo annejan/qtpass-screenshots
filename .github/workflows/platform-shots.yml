@@ -1,0 +1,146 @@
+---
+# SPDX-FileCopyrightText: 2026 Anne Jan Brouwer
+# SPDX-License-Identifier: CC0-1.0
+
+# Windows and macOS screenshots of a QtPass release for qtpass.org's
+# "Looks at home on your desktop" tiles, light and dark, with the demo
+# store of tools/demo-store.py. The second QtPass instance's search
+# argument makes the running window search, expand and open the first
+# match, so no input automation is needed.
+name: Platform screenshots
+
+on:
+  push:
+    branches: ["platform-shots"]
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  QTPASS_REF: v1.8.3
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: IJHack/QtPass
+          ref: ${{ env.QTPASS_REF }}
+          path: qtpass
+          persist-credentials: false
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          version: "6.8"
+          cache: true
+      - name: Build
+        shell: pwsh
+        working-directory: qtpass
+        run: |
+          $ErrorActionPreference = "Stop"
+          qmake qtpass.pro CONFIG+=release
+          nmake
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item main\release\qtpass.exe dist\
+          windeployqt --release dist\qtpass.exe
+      - name: Demo store
+        shell: pwsh
+        run: |
+          $env:GNUPGHOME = "$env:RUNNER_TEMP\gnupg"
+          "GNUPGHOME=$env:GNUPGHOME" >> $env:GITHUB_ENV
+          python tools\demo-store.py "C:\Program Files\Git\usr\bin\gpg.exe" "$env:RUNNER_TEMP\store" qtpass\dist\qtpass.ini
+          Add-Type -AssemblyName System.Windows.Forms
+          [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+      - name: Capture
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force shots | Out-Null
+          $key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+          New-Item -Force -Path $key | Out-Null
+          foreach ($scheme in "light", "dark") {
+            $v = if ($scheme -eq "dark") { 0 } else { 1 }
+            Set-ItemProperty $key AppsUseLightTheme $v -Type DWord
+            Set-ItemProperty $key SystemUsesLightTheme $v -Type DWord
+            Start-Sleep -Seconds 2
+            $qp = Start-Process qtpass\dist\qtpass.exe -PassThru
+            Start-Sleep -Seconds 8
+            Start-Process qtpass\dist\qtpass.exe -ArgumentList "example" -Wait
+            Start-Sleep -Seconds 6
+            $name = if ($scheme -eq "dark") { "windows-app-dark.png" } else { "windows-app.png" }
+            & tools\capture-window.ps1 -ProcessId $qp.Id -Out "shots\$name"
+            Stop-Process -Id $qp.Id -Force
+            Start-Sleep -Seconds 2
+          }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: windows-shots
+          path: shots/
+
+  macos:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: IJHack/QtPass
+          ref: ${{ env.QTPASS_REF }}
+          path: qtpass
+          persist-credentials: false
+      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          # macos-latest needs 6.11.1+ to build (the release workflow does too).
+          version: "6.11"
+          cache: true
+      - name: Build
+        working-directory: qtpass
+        run: |
+          qmake qtpass.pro CONFIG+=release
+          make -j"$(sysctl -n hw.ncpu)"
+          ls main/QtPass.app/Contents/MacOS/
+      - name: Demo store
+        run: |
+          brew install gnupg
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          exe=$(ls qtpass/main/QtPass.app/Contents/MacOS/* | head -1)
+          python3 tools/demo-store.py "$(command -v gpg)" "$RUNNER_TEMP/store" "$(dirname "$exe")/qtpass.ini"
+          system_profiler SPDisplaysDataType | grep -i resolution || true
+      - name: Capture
+        run: |
+          set -x
+          mkdir -p shots
+          exe=$(ls qtpass/main/QtPass.app/Contents/MacOS/* | grep -v '\.ini$' | head -1)
+          for scheme in light dark; do
+            if [ "$scheme" = dark ]; then
+              defaults write -g AppleInterfaceStyle Dark; name=macos-app-dark.png
+            else
+              defaults delete -g AppleInterfaceStyle 2>/dev/null || true; name=macos-app.png
+            fi
+            "$exe" > "$RUNNER_TEMP/qtpass-$scheme.log" 2>&1 &
+            qp=$!
+            sleep 8
+            "$exe" example || true
+            sleep 6
+            id=$(swift tools/window-id.swift "$(basename "$exe")")
+            screencapture -x -l "$id" "shots/$name"
+            kill "$qp"; wait "$qp" 2>/dev/null || true
+            sleep 2
+          done
+          ls -l shots
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: macos-shots
+          path: shots/
