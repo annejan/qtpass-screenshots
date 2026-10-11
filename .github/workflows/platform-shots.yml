@@ -28,33 +28,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: IJHack/QtPass
-          ref: ${{ env.QTPASS_REF }}
-          path: qtpass
-          persist-credentials: false
-      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
-      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
-        with:
-          version: "6.8"
-          cache: true
-      - name: Build
+      # The released installer, installed silently into a fixed folder.
+      - name: Install the release
         shell: pwsh
-        working-directory: qtpass
         run: |
           $ErrorActionPreference = "Stop"
-          qmake qtpass.pro CONFIG+=release
-          nmake
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item main\release\qtpass.exe dist\
-          windeployqt --release dist\qtpass.exe
+          $v = $env:QTPASS_REF.TrimStart("v")
+          Invoke-WebRequest "https://github.com/IJHack/QtPass/releases/download/$env:QTPASS_REF/qtpass-$v.exe" -OutFile "$env:RUNNER_TEMP\setup.exe"
+          Start-Process "$env:RUNNER_TEMP\setup.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=C:\qtpass" -Wait
+          Get-ChildItem C:\qtpass\qtpass.exe
       - name: Demo store
         shell: pwsh
         run: |
           $env:GNUPGHOME = "$env:RUNNER_TEMP\gnupg"
           "GNUPGHOME=$env:GNUPGHOME" >> $env:GITHUB_ENV
-          python tools\demo-store.py "C:\Program Files\Git\usr\bin\gpg.exe" "$env:RUNNER_TEMP\store" qtpass\dist\qtpass.ini
+          # GnuPG for Windows, as Gpg4win installs it; Git's MSYS gpg does not
+          # take Windows paths in GNUPGHOME.
+          choco install gnupg -y --no-progress | Out-Null
+          $gpg = Get-ChildItem "C:\Program Files*\GnuPG\bin\gpg.exe" | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $gpg) { throw "gpg.exe not found after choco install gnupg" }
+          python tools\demo-store.py $gpg "$env:RUNNER_TEMP\store" C:\qtpass\qtpass.ini
           Add-Type -AssemblyName System.Windows.Forms
           [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
       - name: Capture
@@ -69,9 +62,9 @@ jobs:
             Set-ItemProperty $key AppsUseLightTheme $v -Type DWord
             Set-ItemProperty $key SystemUsesLightTheme $v -Type DWord
             Start-Sleep -Seconds 2
-            $qp = Start-Process qtpass\dist\qtpass.exe -PassThru
+            $qp = Start-Process C:\qtpass\qtpass.exe -PassThru
             Start-Sleep -Seconds 8
-            Start-Process qtpass\dist\qtpass.exe -ArgumentList "example" -Wait
+            Start-Process C:\qtpass\qtpass.exe -ArgumentList "example" -Wait
             Start-Sleep -Seconds 6
             $name = if ($scheme -eq "dark") { "windows-app-dark.png" } else { "windows-app.png" }
             & tools\capture-window.ps1 -ProcessId $qp.Id -Out "shots\$name"
@@ -92,23 +85,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: IJHack/QtPass
-          ref: ${{ env.QTPASS_REF }}
-          path: qtpass
-          persist-credentials: false
-      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
-        with:
-          # macos-latest needs 6.11.1+ to build (the release workflow does too).
-          version: "6.11"
-          cache: true
-      - name: Build
-        working-directory: qtpass
+      # The released dmg; the app is copied out and un-quarantined, as the
+      # macOS page tells users to.
+      - name: Install the release
         run: |
-          qmake qtpass.pro CONFIG+=release
-          make -j"$(sysctl -n hw.ncpu)"
-          ls main/QtPass.app/Contents/MacOS/
+          v="${QTPASS_REF#v}"
+          curl -fsSL -o "$RUNNER_TEMP/qtpass.dmg" "https://github.com/IJHack/QtPass/releases/download/$QTPASS_REF/QtPass-$v.dmg"
+          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/dmg" "$RUNNER_TEMP/qtpass.dmg"
+          mkdir -p qtpass/main
+          cp -R "$RUNNER_TEMP/dmg/QtPass.app" qtpass/main/
+          hdiutil detach "$RUNNER_TEMP/dmg"
+          xattr -dr com.apple.quarantine qtpass/main/QtPass.app || true
+          ls qtpass/main/QtPass.app/Contents/MacOS/
       - name: Demo store
         run: |
           brew install gnupg
@@ -128,12 +116,17 @@ jobs:
             else
               defaults delete -g AppleInterfaceStyle 2>/dev/null || true; name=macos-app.png
             fi
-            "$exe" > "$RUNNER_TEMP/qtpass-$scheme.log" 2>&1 &
+            "$exe" > "shots/qtpass-$scheme.log" 2>&1 &
             qp=$!
+            sleep 10
+            "$exe" example >> "shots/qtpass-$scheme.log" 2>&1 || true
             sleep 8
-            "$exe" example || true
-            sleep 6
-            id=$(swift tools/window-id.swift "$(basename "$exe")")
+            ps -p "$qp" -o pid,stat,command || echo "QtPass ($qp) is not running"
+            id=$(swift tools/window-id.swift "$qp" --list) || {
+              cat "shots/qtpass-$scheme.log"
+              screencapture -x "shots/screen-$scheme.png" || true
+              exit 1
+            }
             screencapture -x -l "$id" "shots/$name"
             kill "$qp"; wait "$qp" 2>/dev/null || true
             sleep 2
