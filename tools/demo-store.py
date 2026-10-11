@@ -12,9 +12,7 @@ GNUPGHOME must point to an empty, private directory.
 import os, pathlib, subprocess, sys
 
 gpg, store, ini = sys.argv[1], pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
-home = pathlib.Path(os.environ["GNUPGHOME"])
-home.mkdir(parents=True, exist_ok=True)
-(home / "gpg-agent.conf").write_text("allow-loopback-pinentry\n")
+# GnuPG creates GNUPGHOME itself; loopback pinentry is allowed by default.
 
 def run(*args, **kw):
     return subprocess.run([gpg, "--batch", "--pinentry-mode", "loopback",
@@ -49,8 +47,7 @@ otpMigratedToNative=true
 hidePassword=true
 useAutoclear=true
 autoclearSeconds=45
-useAutoclearPanel=true
-autoclearPanelSeconds=10
+useAutoclearPanel=false
 clipBoardType=1
 passwordLength=16
 useTrayIcon=false

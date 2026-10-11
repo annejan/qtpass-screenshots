@@ -37,13 +37,15 @@ jobs:
           Invoke-WebRequest "https://github.com/IJHack/QtPass/releases/download/$env:QTPASS_REF/qtpass-$v.exe" -OutFile "$env:RUNNER_TEMP\setup.exe"
           Start-Process "$env:RUNNER_TEMP\setup.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=C:\qtpass" -Wait
           Get-ChildItem C:\qtpass\qtpass.exe
-      # Git for Windows' gpg (MSYS) takes Windows paths with forward slashes;
-      # GNUPGHOME with backslashes it reads as a relative path.
+      # Git for Windows' gpg (MSYS) wants GNUPGHOME as an MSYS path; a Windows
+      # path it reads as relative to the working directory.
       - name: Demo store
         shell: pwsh
         timeout-minutes: 5
         run: |
-          $env:GNUPGHOME = "$env:RUNNER_TEMP\gnupg".Replace("\", "/")
+          # D:\a\_temp\gnupg -> /d/a/_temp/gnupg, the MSYS form.
+          $win = "$env:RUNNER_TEMP\gnupg"
+          $env:GNUPGHOME = "/" + $win.Substring(0, 1).ToLower() + $win.Substring(2).Replace("\", "/")
           "GNUPGHOME=$env:GNUPGHOME" >> $env:GITHUB_ENV
           python -u tools\demo-store.py "C:/Program Files/Git/usr/bin/gpg.exe" "$env:RUNNER_TEMP\store" C:\qtpass\qtpass.ini
       - name: Capture
@@ -66,6 +68,8 @@ jobs:
             # search then selects and opens the first match.
             Start-Process C:\qtpass\qtpass.exe -ArgumentList "." -Wait
             Start-Sleep -Seconds 5
+            Start-Process C:\qtpass\qtpass.exe -ArgumentList "mail.example.com|social|web|acme|wiki" -Wait
+            Start-Sleep -Seconds 4
             Start-Process C:\qtpass\qtpass.exe -ArgumentList "mail.example.com|social|web|acme|wiki" -Wait
             Start-Sleep -Seconds 8
             $name = if ($scheme -eq "dark") { "windows-app-dark.png" } else { "windows-app.png" }
@@ -126,6 +130,8 @@ jobs:
             # search then selects and opens the first match.
             "$exe" '.' >> "shots/qtpass-$scheme.log" 2>&1 || true
             sleep 5
+            "$exe" 'mail.example.com|social|web|acme|wiki' >> "shots/qtpass-$scheme.log" 2>&1 || true
+            sleep 4
             "$exe" 'mail.example.com|social|web|acme|wiki' >> "shots/qtpass-$scheme.log" 2>&1 || true
             sleep 8
             ps -p "$qp" -o pid,stat,command || echo "QtPass ($qp) is not running"
