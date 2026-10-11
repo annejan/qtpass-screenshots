@@ -14,6 +14,7 @@ public static class W {
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool SystemParametersInfo(int a, int p, string v, int f);
+  [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW")] public static extern bool SystemParametersInfoPtr(int a, int p, IntPtr v, int f);
   [DllImport("user32.dll")] public static extern bool SetSysColors(int n, int[] e, int[] c);
 }
 "@
@@ -27,6 +28,8 @@ function Set-Desktop([int]$rgb) {
   Start-Sleep -Seconds 2
 }
 
+# Windows Server ships with "Show shadows under windows" off.
+[W]::SystemParametersInfoPtr(0x1025, 0, [IntPtr]1, 3) | Out-Null   # SPI_SETDROPSHADOW
 $h = (Get-Process -Id $ProcessId).MainWindowHandle
 if ($h -eq [IntPtr]::Zero) { throw "process $ProcessId has no main window" }
 [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(1, 1)

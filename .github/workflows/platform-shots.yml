@@ -50,8 +50,10 @@ jobs:
           "GNUPGHOME=$env:GNUPGHOME" >> $env:GITHUB_ENV
           # Room around the window for its shadow, clear of the desktop
           # icons (left) and the taskbar (bottom) on the 1024x768 screen.
+          # QtPass 1.8 centres its window, so only the size counts: small
+          # enough that window plus margin stay above the build watermark.
           $env:QTPASS_POS = "100 30"
-          $env:QTPASS_SIZE = "800 520"
+          $env:QTPASS_SIZE = "780 460"
           python -u tools\demo-store.py "C:/Program Files/Git/usr/bin/gpg.exe" "$env:RUNNER_TEMP\store" C:\qtpass\qtpass.ini
       - name: Capture
         shell: pwsh
@@ -235,21 +237,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install the build and desktop packages
+      - name: Install the desktop packages
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends \
-            build-essential qmake6 qt6-base-dev qt6-tools-dev-tools \
-            qt6-l10n-tools qt6-svg-dev qt6-gtk-platformtheme libgl-dev \
+            build-essential libgl-dev libgtk-3-0 libxkbcommon-x11-0 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 \
             gnupg xvfb x11-utils xdotool imagemagick dbus-x11 mutter \
             gnome-themes-extra adwaita-icon-theme fonts-cantarell \
             gsettings-desktop-schemas dconf-gsettings-backend >/dev/null
-      # Ubuntu's own qtpass package is older, so the release is built.
+      # Qt 6.8, whose GTK platform theme follows the dark setting (Ubuntu's
+      # 6.4 does not); Ubuntu's own qtpass package is older anyway.
+      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          version: "6.8"
+          cache: true
       - name: Build QtPass
         run: |
           git clone -q --depth 1 -b "$QTPASS_REF" https://github.com/IJHack/QtPass.git qtpass
-          cd qtpass && qmake6 qtpass.pro CONFIG+=release >/dev/null && make -j"$(nproc)" >/dev/null
-          ls -l main/qtpass
+          cd qtpass && qmake qtpass.pro CONFIG+=release >/dev/null && make -j"$(nproc)" >/dev/null
+          ls -l main/qtpass "$QT_ROOT_DIR/plugins/platformthemes/"
       - name: Capture
         timeout-minutes: 8
         run: |
