@@ -151,3 +151,42 @@ jobs:
         with:
           name: macos-shots
           path: shots/
+
+  freebsd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # FreeBSD's qtpass package lags (1.8.2), so the release is built from
+      # source, as QtPass's own FreeBSD CI does; Plasma's KWin and Breeze
+      # on Xvfb give the desktop.
+      - name: Build and capture in a FreeBSD VM
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        with:
+          release: "14"
+          usesh: true
+          mem: 6144
+          cpu: 3
+          sync: rsync
+          copyback: true
+          envs: "QTPASS_REF"
+          prepare: |
+            pkg install -y qt6-base qt6-tools qt6-svg gnupg git python3 \
+              xorg-vfbserver xkbcomp xauth xdotool xprop xwininfo ImageMagick7 \
+              noto-basic dbus plasma6-kwin-x11 plasma6-breeze kf6-breeze-icons \
+              plasma6-plasma-integration-qt6
+          run: |
+            set -e
+            git clone -q --depth 1 -b "$QTPASS_REF" https://github.com/IJHack/QtPass.git qtpass
+            cd qtpass && qmake6 qtpass.pro CONFIG+=release >/dev/null && make -j3 >/dev/null && cd ..
+            ls -l qtpass/main/qtpass
+            sh tools/freebsd-shots.sh qtpass/main/qtpass
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: freebsd-shots
+          path: shots/
